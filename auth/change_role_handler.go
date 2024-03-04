@@ -7,6 +7,7 @@ import (
 )
 
 type ChangeRole struct {
+	EventCh chan interface{}
 }
 
 func (h *ChangeRole) Handle(w http.ResponseWriter, r *http.Request) {
@@ -34,4 +35,15 @@ func (h *ChangeRole) Handle(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "User role updated successfully")
+
+	go func() {
+		h.EventCh <- Event{
+			Name: "role-changed",
+			Payload: map[string]interface{}{
+				"user-id":  publicId,
+				"email":    requestData.Email,
+				"new-role": requestData.NewRole,
+			},
+		}
+	}()
 }

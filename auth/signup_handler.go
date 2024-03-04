@@ -8,6 +8,7 @@ import (
 )
 
 type Signup struct {
+	EventCh chan interface{}
 }
 
 func (h *Signup) Handle(w http.ResponseWriter, r *http.Request) {
@@ -36,4 +37,14 @@ func (h *Signup) Handle(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	fmt.Fprintf(w, "User created successfully")
+
+	go func() {
+		h.EventCh <- Event{
+			Name: "user-registered",
+			Payload: map[string]interface{}{
+				"role":    user.Role,
+				"user-id": publicId,
+			},
+		}
+	}()
 }

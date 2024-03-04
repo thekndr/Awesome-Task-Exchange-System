@@ -16,6 +16,11 @@ type User struct {
 	Role     string `json:"role"`
 }
 
+type Event struct {
+	Name    string                 `json:"event_name"`
+	Payload map[string]interface{} `json:"event_context"`
+}
+
 var (
 	listenPort    = MustGetEnvInt(`AUTH_API_PORT`)
 	dashboardPort = MustGetEnvInt(`DASHBOARD_PORT`)
@@ -38,15 +43,20 @@ func ensureValidRole(role string, w http.ResponseWriter) bool {
 func main() {
 	initDB()
 
+	kafkaStreaming := MustNewEventStreaming()
+	defer kafkaStreaming.Cancel()
+
+	eventCh := kafkaStreaming.Start("accounts-stream")
+
 	mux := http.NewServeMux()
 
-	signup := Signup{}
+	signup := Signup{EventCh: eventCh}
 	mux.HandleFunc(`POST /signup`, signup.Handle)
 
 	mux.HandleFunc(`POST /login`, loginHandler)
 	mux.HandleFunc(`GET /verify`, verifyTokenHandler)
 
-	changeRole := ChangeRole{}
+	changeRole := ChangeRole{EventCh: eventCh}
 	mux.HandleFunc(`POST /changeRole`, auth_client.WithTokenVerification(
 		listenPort, changeRole.Handle,
 	))
