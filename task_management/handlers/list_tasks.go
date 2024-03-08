@@ -5,25 +5,39 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+
+	"github.com/thekndr/ates/task_management/users"
 )
 
 type ListTasks struct {
-	Db *sql.DB
+	Db       *sql.DB
+	Managers *users.Managers
 }
 
-// TODO: list all tasks for non-worker roles
 func (h *ListTasks) Handle(userId string, w http.ResponseWriter, r *http.Request) {
-	log.Printf("tasks listed, user=%s", userId)
-
 	type taskRow struct {
 		CreatedAt   string `json:"created_at"`
-		UUID        string `json:"id"`
+		PublicId    string `json:"id"`
 		Status      int    `json:"status"`
+		AssigneeId  string `json:"assignee_id"`
 		Description string `json:"description"`
 	}
 
-	query := `SELECT created_at, uuid, status, description FROM tasks WHERE assignee = $1;`
-	rows, err := h.Db.Query(query, userId)
+	var (
+		query string
+		err   error
+		rows  *sql.Rows
+	)
+	if h.Managers.Has(userId) {
+		query = `SELECT created_at, public_id, status, assignee_id, description FROM tasks;`
+		rows, err = h.Db.Query(query)
+		log.Printf(`- listing all tasks`)
+	} else {
+		query = `SELECT created_at, public_id, status, assignee_id, description FROM tasks WHERE assignee_id = $1;`
+		rows, err = h.Db.Query(query, userId)
+		log.Printf(`- listing tasks limited to user=%s`, userId)
+	}
+
 	if err != nil {
 		http.Error(w, "(1) Failed to query assigned tasks", http.StatusInternalServerError)
 		log.Printf(`failed to query assigned tasks, user-id=%s: %s`, userId, err)
@@ -35,7 +49,7 @@ func (h *ListTasks) Handle(userId string, w http.ResponseWriter, r *http.Request
 
 	for rows.Next() {
 		var task taskRow
-		if err := rows.Scan(&task.CreatedAt, &task.UUID, &task.Status, &task.Description); err != nil {
+		if err := rows.Scan(&task.CreatedAt, &task.PublicId, &task.Status, &task.AssigneeId, &task.Description); err != nil {
 			http.Error(w, "(2) Failed to query assigned tasks", http.StatusInternalServerError)
 			log.Printf(`failed to scan queried rows, user-id=%s: %s`, userId, err)
 			return

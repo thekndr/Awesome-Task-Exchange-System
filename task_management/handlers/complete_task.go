@@ -15,7 +15,7 @@ func (h *CompleteTask) Handle(userId string, w http.ResponseWriter, r *http.Requ
 	taskId := r.PathValue(`taskId`)
 	log.Printf("complete task=%s, user=%s", taskId, userId)
 
-	query := `UPDATE tasks SET status = $1 WHERE uuid = $2 AND assignee_id = $3;`
+	query := `UPDATE tasks SET status = $1 WHERE public_id = $2 AND assignee_id = $3;`
 
 	result, err := h.Db.Exec(query, common.TaskDoneStatus, taskId, userId)
 	if err != nil {

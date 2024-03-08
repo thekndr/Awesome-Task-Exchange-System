@@ -28,7 +28,7 @@ func (h *Signup) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var publicId string
-	err := db.QueryRow("INSERT INTO users (email, password, role) VALUES ($1, $2, $3) RETURNING uuid", user.Email, user.Password, user.Role).Scan(&publicId)
+	err := db.QueryRow("INSERT INTO users (email, password, role) VALUES ($1, $2, $3) RETURNING public_id", user.Email, user.Password, user.Role).Scan(&publicId)
 	if err != nil {
 		http.Error(w, "Failed to insert user", http.StatusInternalServerError)
 		log.Printf("insertion failed (email=%s,password=%d,role=%s): %s", user.Email, len(user.Password), user.Role, err)
@@ -40,10 +40,11 @@ func (h *Signup) Handle(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		h.EventCh <- Event{
-			Name: "user-registered",
-			Payload: map[string]interface{}{
+			Name: "user.registered",
+			Context: map[string]interface{}{
 				"role":    user.Role,
 				"user-id": publicId,
+				"email":   user.Email,
 			},
 		}
 	}()

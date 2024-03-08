@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
-	"strings"
 )
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -15,7 +13,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var publicId, dbPassword, role string
-	err := db.QueryRow("SELECT uuid, password, role FROM users WHERE email = $1", user.Email).Scan(&publicId, &dbPassword, &role)
+	err := db.QueryRow("SELECT public_id, password, role FROM users WHERE email = $1", user.Email).Scan(&publicId, &dbPassword, &role)
 	if err != nil {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
@@ -33,10 +31,13 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Redirect to tasks with the token
-	redirectUrl := strings.Replace(
-		strings.Replace(loginRedirectUrlTemplate, "{{ token }}", token, 1),
-		"{{ dashboard_port }}", strconv.Itoa(dashboardPort), 1,
-	)
-	http.Redirect(w, r, redirectUrl, http.StatusSeeOther)
+	var response = struct {
+		Token string `json:"token"`
+	}{Token: token}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Failed to encode token as JSON", http.StatusInternalServerError)
+		return
+	}
 }
