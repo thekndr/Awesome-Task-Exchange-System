@@ -17,7 +17,9 @@ var (
 	authAPIPort = 4000
 	listenPort  = 4001
 	db          = task_management.MustInitDB()
-	workers     = users.NewWorkers()
+
+	workers  = users.NewWorkers()
+	managers = users.NewManagers()
 )
 
 func main() {
@@ -25,13 +27,21 @@ func main() {
 	defer cancel()
 
 	go mustConsumeFromKafka(ctx, "accounts-stream", func(msg []byte) error {
-		return onAccountChange(msg, workers)
+		return onAccountChange(msg, workers, managers)
 	})
+
+	mux := establishEndpoints()
+
+	log.Printf("TaskManagement.Server started at port %d\n", listenPort)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", listenPort), mux))
+}
+
+func establishEndpoints() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc(`GET /tasks`, auth_client.WithTokenVerification(
 		authAPIPort, handlers.WithUserId(&handlers.ListTasks{
-			Db: db,
+			Db: db, Managers: managers,
 		}),
 	))
 
@@ -53,11 +63,10 @@ func main() {
 		}),
 	))
 
-	log.Printf("TaskManagement.Server started at port %d\n", listenPort)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", listenPort), mux))
+	return mux
 }
 
-func onAccountChange(msg []byte, workers *users.Workers) error {
+func onAccountChange(msg []byte, workers *users.Workers, managers *users.Managers) error {
 	type event struct {
 		Name    string                 `json:"event_name"`
 		Context map[string]interface{} `json:"event_context"`
@@ -78,24 +87,39 @@ func onAccountChange(msg []byte, workers *users.Workers) error {
 	}
 
 	switch ev.Name {
-	case "user-registered":
+	case "user.registered":
 		log.Printf(`user added, id=%s`, userIdStr)
-		_ = workers.Add(
-			userIdStr,
-			// for the sake of simplicity type checking is omit
-			ev.Context["email"].(string),
-		)
 
-	case "role-changed":
+		role := common.Role(ev.Context["role"].(string))
+		switch role {
+		case common.ManagerRole:
+			_ = managers.Add(userIdStr)
+		case common.WorkerRole:
+			_ = workers.Add(userIdStr,
+				// for the sake of simplicity the type checking is omit
+				ev.Context["email"].(string),
+			)
+		default:
+			log.Fatalf(`unsupported role: %s`, role)
+		}
+
+	case "user.role-changed":
 		// for the sake of simplicity type checking is omit
 		newRole := common.Role(ev.Context["new-role"].(string))
 		if !newRole.IsValid() {
 			log.Printf(`invalid role received=%s`, newRole)
 		} else {
-			if common.Role(newRole) != common.WorkerRole {
+			switch common.Role(newRole) {
+			case common.WorkerRole:
+				_ = workers.Add(userIdStr, "todo@email")
+				_ = managers.Remove(userIdStr)
+			case common.ManagerRole:
 				_ = workers.Remove(userIdStr)
-				log.Printf(`non-worker user removed, id=%s, new-role=%s`, userIdStr, newRole)
+				_ = managers.Add(userIdStr)
+			default:
+				log.Fatalf(`unsupported role: %s`, newRole)
 			}
+			log.Printf(`role changed, id=%s, new-role=%s`, userIdStr, newRole)
 		}
 	}
 

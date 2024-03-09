@@ -59,7 +59,19 @@ func (u *Workers) AllIds() []string {
 	return ids
 }
 
-func Random(ids []string) string {
+func (u *Workers) RandomIds() RandomWorkerIds {
 	rand.Seed(time.Now().UnixNano())
-	return ids[rand.Intn(len(ids))]
+	return RandomWorkerIds{ids: u.AllIds()}
+}
+
+type RandomWorkerIds struct {
+	ids []string
+}
+
+func (r RandomWorkerIds) Len() int {
+	return len(r.ids)
+}
+
+func (r RandomWorkerIds) Get() string {
+	return r.ids[rand.Intn(len(r.ids))]
 }

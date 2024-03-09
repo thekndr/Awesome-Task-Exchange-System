@@ -18,7 +18,7 @@ type User struct {
 
 type Event struct {
 	Name    string                 `json:"event_name"`
-	Payload map[string]interface{} `json:"event_context"`
+	Context map[string]interface{} `json:"event_context"`
 }
 
 var (
@@ -36,7 +36,7 @@ func ensureValidRole(role string, w http.ResponseWriter) bool {
 		return true
 	}
 
-	http.Error(w, "Invalid role", http.StatusBadRequest)
+	http.Error(w, fmt.Sprintf(`Invalid role: %s`, role), http.StatusBadRequest)
 	return false
 }
 
@@ -57,6 +57,7 @@ func main() {
 	mux.HandleFunc(`GET /verify`, verifyTokenHandler)
 
 	changeRole := ChangeRole{EventCh: eventCh}
+	// For the sake of simplicity, `manager` role is not verified here but required
 	mux.HandleFunc(`POST /changeRole`, auth_client.WithTokenVerification(
 		listenPort, changeRole.Handle,
 	))

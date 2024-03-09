@@ -2,17 +2,20 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/google/uuid"
 	"log"
 )
 
 type OnKafkaMessageFunc func(payload []byte) error
 
 func mustConsumeFromKafka(ctx context.Context, topic string, onMessage OnKafkaMessageFunc) {
-	// Consumer configuration
+	uniqueGroupId := fmt.Sprintf(`ates-task-management-%s`, uuid.NewString())
+
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":  "localhost:9092",
-		"group.id":           "ates-task-management",
+		"group.id":           uniqueGroupId,
 		"auto.offset.reset":  "earliest",
 		"enable.auto.commit": false, // Disable auto-commit of offsets
 	})

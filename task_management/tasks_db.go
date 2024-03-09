@@ -23,7 +23,7 @@ func MustInitDB() *sql.DB {
 CREATE TABLE IF NOT EXISTS tasks (
     id SERIAL PRIMARY KEY,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
-    uuid UUID NOT NULL DEFAULT gen_random_uuid(),
+    public_id UUID NOT NULL DEFAULT gen_random_uuid(),
     assignee_id UUID NOT NULL,
     description VARCHAR(255),
     status INT NOT NULL

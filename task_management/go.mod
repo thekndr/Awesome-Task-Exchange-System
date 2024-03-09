@@ -8,6 +8,7 @@ replace github.com/thekndr/ates/common => ../common
 
 require (
 	github.com/confluentinc/confluent-kafka-go v1.9.2
+	github.com/google/uuid v1.3.0
 	github.com/lib/pq v1.10.9
 	github.com/thekndr/ates/auth_client v0.0.0-00010101000000-000000000000
 	github.com/thekndr/ates/common v0.0.0-00010101000000-000000000000

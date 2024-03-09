@@ -27,7 +27,7 @@ func (h *ChangeRole) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var publicId string
-	err := db.QueryRow("UPDATE users SET role = $1 WHERE email = $2 RETURNING uuid", requestData.NewRole, requestData.Email).Scan(&publicId)
+	err := db.QueryRow("UPDATE users SET role = $1 WHERE email = $2 RETURNING public_id", requestData.NewRole, requestData.Email).Scan(&publicId)
 	if err != nil {
 		http.Error(w, "Failed to update user role", http.StatusInternalServerError)
 		return
@@ -38,8 +38,8 @@ func (h *ChangeRole) Handle(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		h.EventCh <- Event{
-			Name: "role-changed",
-			Payload: map[string]interface{}{
+			Name: "user.role-changed",
+			Context: map[string]interface{}{
 				"user-id":  publicId,
 				"email":    requestData.Email,
 				"new-role": requestData.NewRole,

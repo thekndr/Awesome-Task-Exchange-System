@@ -13,7 +13,7 @@ type JwtToken struct {
 
 func (jt JwtToken) Issue(publicId, email, role string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"uuid":  publicId,
+		"id":    publicId,
 		"email": email,
 		"role":  role,
 		"exp":   time.Now().Add(jt.TTL).Unix(),

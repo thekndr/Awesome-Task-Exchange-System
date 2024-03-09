@@ -11,7 +11,7 @@ func WithUserId(handler HandlerWithUserId) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tokenString := r.URL.Query().Get("token")
 
-		userId, err := auth_client.GetClaimWithoutVerification[string](tokenString, "uuid")
+		userId, err := auth_client.GetClaimWithoutVerification[string](tokenString, "id")
 		if err != nil || userId == "" {
 			http.Error(w, "failed to identify user", http.StatusInternalServerError)
 			log.Printf(`user-id is missing in token: %s`, err)
