@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS accounting_workers (
        id SERIAL PRIMARY KEY,
        public_id UUID NOT NULL,
-       email VARCHAR(255) UNIQUE NOT NULL
+       email VARCHAR(255) UNIQUE NOT NULL,
        balance INT NOT NULL DEFAULT 0
 );
 
@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS accounting_billing_cycles (
        id SERIAL PRIMARY KEY,
        created_at TIMESTAMP NOT NULL DEFAULT now(),
        -- TODO: closed_at
-       status VARCHAR(10)
+       status VARCHAR(10) DEFAULT 'active'
 );
 
 -- DROP TYPE IF EXISTS accounting_transaction_operation;
@@ -28,7 +28,11 @@ CREATE TABLE IF NOT EXISTS accounting_transactions (
 
 CREATE TABLE IF NOT EXISTS accounting_payments (
        id SERIAL PRIMARY KEY,
-       created_at TIMESTAMP NOT NULL DEFAULT now()
+       created_at TIMESTAMP NOT NULL DEFAULT now(),
+       amount INT NOT NULL,
+       status VARCHAR(10) DEFAULT 'pending', -- pending/complete
+       FOREIGN KEY (id) REFERENCES accounting_workers(id),
+       FOREIGN KEY (id) REFERENCES accounting_billing_cycles(id)
 );
 
 CREATE TABLE IF NOT EXISTS accounting_tasks (

@@ -16,7 +16,7 @@ var (
 	sqlStatementsDrop string
 )
 
-func MustInit(drop bool) *sql.DB {
+func MustInit(reset bool) *sql.DB {
 	connStr := "user=popug dbname=ates password=pgdbpassword sslmode=disable"
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -29,13 +29,18 @@ func MustInit(drop bool) *sql.DB {
 
 	log.Println(`Preparing tables...`)
 
-	if drop {
-		log.Println("!!! DROP all tables mode")
+	if reset {
+		log.Println("!!! RESET all tables mode")
+		log.Printf(`resetting tables...`)
 		_, err = db.Exec(sqlStatementsDrop)
-	} else {
-		_, err = db.Exec(sqlStatementsSetup)
+		if err != nil {
+			log.Fatalf(`failed to reset tables: %w`, err)
+		}
+		log.Println(`... done`)
 	}
 
+	log.Printf(`establishing missing tables...`)
+	_, err = db.Exec(sqlStatementsSetup)
 	if err != nil {
 		log.Fatal(err)
 	}
