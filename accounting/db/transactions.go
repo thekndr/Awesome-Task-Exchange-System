@@ -53,19 +53,20 @@ type Transaction struct {
 	Enrolment  uint
 }
 
-func (t *Transaction) Assign(tx *sql.Tx) error {
-
-	return fmt.Errorf(`not implemented yet`)
-}
-
 func (t *Transaction) Withdraw(tx *sql.Tx, value uint) error {
 	query := `UPDATE accounting_transactions SET withdrawal = $2 WHERE id = $1`
 	_, err := tx.Exec(query, t.Id, value)
+	if err != nil {
+		fmt.Errorf(`failed to withdraw tx id=%d value=%d: %w`, t.Id, value, err)
+	}
 	return err
 }
 
 func (t *Transaction) Enroll(tx *sql.Tx, value uint) error {
 	query := `UPDATE accounting_transactions SET enrolment = $2 WHERE id = $1`
 	_, err := tx.Exec(query, t.Id, value)
+	if err != nil {
+		fmt.Errorf(`failed to enroll tx id=%d value=%d: %w`, t.Id, value, err)
+	}
 	return err
 }

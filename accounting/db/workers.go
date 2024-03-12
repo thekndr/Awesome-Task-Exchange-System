@@ -49,13 +49,24 @@ type Worker struct {
 	Id       uint64
 	PublicId string
 	Email    string
-	Balance  int
 }
 
-func (w *Worker) Withdraw(optionalTx *sql.Tx, cycleId uint64, amount uint) error {
-	return fmt.Errorf(``)
+func (w *Worker) Withdraw(tx *sql.Tx, billingCycleId uint64, amount uint) (int, error) {
+	updateBalanceQuery := `UPDATE accounting_workers SET balance = balance - $1 WHERE id = $2 RETURNING balance`
+	var newBalance int
+	err := tx.QueryRow(updateBalanceQuery, amount, w.Id).Scan(&newBalance)
+	if err != nil {
+		return 0, fmt.Errorf(`failed to withdraw user=%d amount=%d bid=%d: %w`, w.Id, amount, billingCycleId, err)
+	}
+	return newBalance, nil
 }
 
-func (w *Worker) Enroll(optionalTx *sql.Tx, cycleId uint64, amount uint) error {
-	return fmt.Errorf(``)
+func (w *Worker) Enroll(tx *sql.Tx, billingCycleId uint64, amount uint) (int, error) {
+	updateBalanceQuery := `UPDATE accounting_workers SET balance = balance + $1 WHERE id = $2 RETURNING balance`
+	var newBalance int
+	err := tx.QueryRow(updateBalanceQuery, amount, w.Id).Scan(&newBalance)
+	if err != nil {
+		return 0, fmt.Errorf(`failed to enroll user=%d amount=%d bid=%d: %w`, w.Id, amount, billingCycleId, err)
+	}
+	return newBalance, nil
 }
