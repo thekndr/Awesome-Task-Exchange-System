@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TaskCompletedEvent",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "enum": ["task-completed"]
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "version": {
+          "type": "string",
+          "const": "1"
+        }
+      },
+      "required": ["id", "version"],
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "assignee-id": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": ["assignee-id", "id"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["name", "meta", "context"],
+  "additionalProperties": false
+}

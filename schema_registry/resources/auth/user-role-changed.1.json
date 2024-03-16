@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UserRoleChangedEvent",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "enum": ["user-role-changed"]
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "version": {
+          "type": "string",
+          "const": "1"
+        }
+      },
+      "required": ["id", "version"],
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "user-id": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "new-role": {
+          "type": "string"
+        }
+      },
+      "required": ["user-id", "email", "new-role"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["name", "meta", "context"],
+  "additionalProperties": false
+}

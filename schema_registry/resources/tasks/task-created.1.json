@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TaskCreatedEvent",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "enum": ["task-created"]
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "version": {
+          "type": "string",
+          "const": "1"
+        }
+      },
+      "required": ["id", "version"],
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "assignee-id": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        }
+      },
+      "required": ["assignee-id", "description", "id"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["name", "meta", "context"],
+  "additionalProperties": false
+}
