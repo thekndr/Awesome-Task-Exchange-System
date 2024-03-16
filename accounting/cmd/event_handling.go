@@ -7,7 +7,17 @@ import (
 	"github.com/thekndr/ates/accounting/db"
 	"github.com/thekndr/ates/accounting/event_handlers"
 	"github.com/thekndr/ates/common"
+	"github.com/thekndr/ates/event_streaming"
+	"github.com/thekndr/ates/schema_registry"
 	"log"
+)
+
+var (
+	authSchemas      = newAuthSchemas()
+	authEventVersion = 1
+
+	taskSchemas      = newTaskSchemas()
+	taskEventVersion = 1
 )
 
 type eventHandlers struct {
@@ -53,11 +63,6 @@ func (eh *eventHandlers) setup(dbInstance *sql.DB) {
 	}
 }
 
-type event struct {
-	Name    string                 `json:"event_name"`
-	Context map[string]interface{} `json:"event_context"`
-}
-
 func (eh *eventHandlers) OnBillingCycleCompleted() error {
 	workerIdsWithPositiveBalances, err := eh.billingCycleCompleted.Handle(event_handlers.BillingCycleCompletedEvent{})
 	_ = workerIdsWithPositiveBalances
@@ -70,7 +75,7 @@ func (eh *eventHandlers) OnBillingCycleCompleted() error {
 }
 
 func (eh *eventHandlers) OnEvent(topic string, msg []byte) error {
-	var ev event
+	var ev event_streaming.PublicEvent
 
 	if err := json.Unmarshal(msg, &ev); err != nil {
 		return fmt.Errorf(`failed to decode event: %w`, err)
@@ -78,25 +83,21 @@ func (eh *eventHandlers) OnEvent(topic string, msg []byte) error {
 
 	switch topic {
 	case "auth.accounts":
-		return eh.onAuthEvent(ev)
+		return eh.onAuthEvent(ev, msg)
 	case "task-management.tasks":
-		return eh.onTaskEvent(ev)
+		return eh.onTaskEvent(ev, msg)
 	default:
 		log.Fatalf(`unknown/unsupported topic: %s`, topic)
 	}
 	return nil
 }
 
-func (eh *eventHandlers) onAuthEvent(ev event) error {
-	userId, ok := ev.Context["user-id"]
-	if !ok {
-		return fmt.Errorf(`malformed event, user-id missing`)
-	}
-	userIdStr, ok := userId.(string)
-	if !ok {
-		return fmt.Errorf(`malformed event, user-id non-string type`)
+func (eh *eventHandlers) onAuthEvent(ev event_streaming.PublicEvent, rawEv []byte) error {
+	if err := eh.validate(authSchemas, ev, rawEv); err != nil {
+		return err
 	}
 
+	userIdStr := ev.Context["user-id"].(string)
 	switch ev.Name {
 	case "user.registered":
 		log.Printf(`user added, id=%s`, userIdStr)
@@ -130,30 +131,26 @@ func (eh *eventHandlers) onAuthEvent(ev event) error {
 	return nil
 }
 
-func (eh *eventHandlers) onTaskEvent(ev event) error {
-	taskId, ok := ev.Context["task-id"]
-	if !ok {
-		return fmt.Errorf(`malformed event, task-id missing`)
-	}
-	taskIdStr, ok := taskId.(string)
-	if !ok {
-		return fmt.Errorf(`malformed event, task-id non-string type`)
+func (eh *eventHandlers) onTaskEvent(ev event_streaming.PublicEvent, rawEv []byte) error {
+	if err := eh.validate(taskSchemas, ev, rawEv); err != nil {
+		return err
 	}
 
+	taskIdStr := ev.Context["id"].(string)
 	switch ev.Name {
-	case "task.created":
+	case "task-created":
 		return eh.task.created.Handle(event_handlers.TaskCreatedEvent{
 			Id:          taskIdStr,
 			Description: ev.Context["description"].(string),
 		})
 
-	case "task.assigned":
+	case "task-assigned":
 		return eh.task.assigned.Handle(event_handlers.TaskAssignedEvent{
 			Id:         taskIdStr,
 			AssigneeId: ev.Context["assignee-id"].(string),
 		})
 
-	case "task.completed":
+	case "task-completed":
 		return eh.task.completed.Handle(event_handlers.TaskCompletedEvent{
 			Id:         taskIdStr,
 			AssigneeId: ev.Context["assignee-id"].(string),
@@ -164,4 +161,39 @@ func (eh *eventHandlers) onTaskEvent(ev event) error {
 	}
 
 	return nil
+}
+
+func (eg *eventHandlers) validate(schemas schema_registry.Schemas, ev event_streaming.PublicEvent, rawEv []byte) error {
+	valid, err := schemas.Validate(rawEv, ev.Name, taskEventVersion)
+	if err != nil {
+		return fmt.Errorf(`error during schema event=%s (%+v): %s`, ev.Name, ev.Meta, err)
+	}
+
+	if !valid {
+		return fmt.Errorf(`invalid schema for event=%s (%+v)`, ev.Name, ev.Meta)
+	}
+
+	return nil
+}
+
+func newAuthSchemas() schema_registry.Schemas {
+	authSchemas, err := schema_registry.NewSchemas(
+		schema_registry.Scope("auth"),
+		"user-registered", "user-role-changed",
+	)
+	if err != nil {
+		log.Fatalf(`failed to create auth schemas registry validator: %w`, err)
+	}
+	return authSchemas
+}
+
+func newTaskSchemas() schema_registry.Schemas {
+	authSchemas, err := schema_registry.NewSchemas(
+		schema_registry.Scope("task"),
+		"task-created", "task-assigned", "task-completes",
+	)
+	if err != nil {
+		log.Fatalf(`failed to create task schemas registry validator: %w`, err)
+	}
+	return authSchemas
 }
