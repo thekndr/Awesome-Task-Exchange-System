@@ -8,12 +8,14 @@ import (
 	"net/http"
 
 	"github.com/thekndr/ates/common"
+	"github.com/thekndr/ates/event_streaming"
 	"github.com/thekndr/ates/task_management/users"
 )
 
 type ShuffleTasks struct {
 	Db      *sql.DB
 	Workers *users.Workers
+	EventCh chan event_streaming.InternalEvent
 }
 
 func (h *ShuffleTasks) Handle(w http.ResponseWriter, r *http.Request) {
@@ -29,6 +31,18 @@ func (h *ShuffleTasks) Handle(w http.ResponseWriter, r *http.Request) {
 		log.Printf(`failed to encode changes changes=%+v: %s`, changes, err)
 		return
 	}
+
+	go func() {
+		for _, change := range changes {
+			h.EventCh <- event_streaming.InternalEvent{
+				Name: "task-assigned",
+				Context: event_streaming.EventContext{
+					"id":          change.TaskId,
+					"assignee-id": change.NewAssigneeId,
+				},
+			}
+		}
+	}()
 }
 
 type shuffleChange struct {

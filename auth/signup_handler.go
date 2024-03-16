@@ -3,12 +3,13 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/thekndr/ates/event_streaming"
 	"log"
 	"net/http"
 )
 
 type Signup struct {
-	EventCh chan interface{}
+	EventCh chan event_streaming.InternalEvent
 }
 
 func (h *Signup) Handle(w http.ResponseWriter, r *http.Request) {
@@ -39,8 +40,8 @@ func (h *Signup) Handle(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "User created successfully")
 
 	go func() {
-		h.EventCh <- Event{
-			Name: "user.registered",
+		h.EventCh <- event_streaming.InternalEvent{
+			Name: "user-registered",
 			Context: map[string]interface{}{
 				"role":    user.Role,
 				"user-id": publicId,

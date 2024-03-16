@@ -8,12 +8,14 @@ import (
 	"net/http"
 
 	"github.com/thekndr/ates/common"
+	"github.com/thekndr/ates/event_streaming"
 	"github.com/thekndr/ates/task_management/users"
 )
 
 type CreateTask struct {
 	Db      *sql.DB
 	Workers *users.Workers
+	EventCh chan event_streaming.InternalEvent
 }
 
 func (h *CreateTask) Handle(w http.ResponseWriter, r *http.Request) {
@@ -36,18 +38,32 @@ func (h *CreateTask) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	taskDescription, assigneeId := requestData.Description, randomWorkerIds.Get()
-	if err := createTask(h.Db, taskDescription, assigneeId); err != nil {
+	var (
+		taskId string
+		err    error
+	)
+	if taskId, err = createTask(h.Db, taskDescription, assigneeId); err != nil {
 		http.Error(w, "Failed to add a new task", http.StatusInternalServerError)
 		log.Printf(`failed: create task, description=%s, user-id=%s: %s`, requestData.Description, assigneeId, err)
 		return
 	}
 
-	log.Printf(`Task created, assigned to %s`, assigneeId)
+	log.Printf(`Task created id=%s, assigned to %s`, taskId, assigneeId)
 	w.WriteHeader(http.StatusCreated)
+
+	event_streaming.Publish(
+		h.EventCh, "task-created",
+		event_streaming.EventContext{
+			"assignee-id": assigneeId,
+			"description": taskDescription,
+			"id":          taskId,
+		},
+	)
 }
 
-func createTask(db *sql.DB, description string, assigneeID string) error {
-	query := `INSERT INTO tasks (description, assignee_id, status) VALUES ($1, $2, $3)`
-	_, err := db.Exec(query, description, assigneeID, common.TaskActiveStatus)
-	return err
+func createTask(db *sql.DB, description string, assigneeID string) (string, error) {
+	query := `INSERT INTO tasks (description, assignee_id, status) VALUES ($1, $2, $3) RETURNING public_id`
+	var publicId string
+	err := db.QueryRow(query, description, assigneeID, common.TaskActiveStatus).Scan(&publicId)
+	return publicId, err
 }

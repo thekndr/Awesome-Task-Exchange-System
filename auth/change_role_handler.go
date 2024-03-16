@@ -3,11 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/thekndr/ates/event_streaming"
 	"net/http"
 )
 
 type ChangeRole struct {
-	EventCh chan interface{}
+	EventCh chan event_streaming.InternalEvent
 }
 
 func (h *ChangeRole) Handle(w http.ResponseWriter, r *http.Request) {
@@ -37,8 +38,8 @@ func (h *ChangeRole) Handle(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "User role updated successfully")
 
 	go func() {
-		h.EventCh <- Event{
-			Name: "user.role-changed",
+		h.EventCh <- event_streaming.InternalEvent{
+			Name: "user-role-changed",
 			Context: map[string]interface{}{
 				"user-id":  publicId,
 				"email":    requestData.Email,
