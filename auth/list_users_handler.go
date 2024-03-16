@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	_ "github.com/thekndr/ates/auth_client"
 	"log"
 	"net/http"
 	"time"

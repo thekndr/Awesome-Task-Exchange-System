@@ -3,12 +3,14 @@ package handlers
 import (
 	"database/sql"
 	"github.com/thekndr/ates/common"
+	"github.com/thekndr/ates/event_streaming"
 	"log"
 	"net/http"
 )
 
 type CompleteTask struct {
-	Db *sql.DB
+	Db      *sql.DB
+	EventCh chan event_streaming.InternalEvent
 }
 
 func (h *CompleteTask) Handle(userId string, w http.ResponseWriter, r *http.Request) {
@@ -30,4 +32,12 @@ func (h *CompleteTask) Handle(userId string, w http.ResponseWriter, r *http.Requ
 	}
 
 	w.WriteHeader(http.StatusAccepted)
+
+	event_streaming.Publish(
+		h.EventCh, "task-completed",
+		event_streaming.EventContext{
+			"assignee-id": userId,
+			"id":          taskId,
+		},
+	)
 }
