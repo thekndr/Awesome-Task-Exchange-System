@@ -27,13 +27,21 @@ var (
 	//go:embed resources/tasks/task-created.2.json
 	taskCreatedSchema_2 string
 
+	//go:embed resources/accounting/task-assigned.1.json
+	accountingTaskAssigned_1 string
+
+	//go:embed resources/accounting/task-completed.1.json
+	accountingTaskCompleted_1 string
+
 	globalRegistry = map[string]string{
-		"auth.user-registered.1":   userRegisteredSchema_1,
-		"auth.user-role-changed.1": userRoleChangedSchema_1,
-		"tasks.task-created.1":     taskCreatedSchema_1,
-		"tasks.task-created.2":     taskCreatedSchema_2,
-		"tasks.task-completed.1":   taskCompletedSchema_1,
-		"tasks.task-assigned.1":    taskAssignedSchema_1,
+		"auth.user-registered.1":      userRegisteredSchema_1,
+		"auth.user-role-changed.1":    userRoleChangedSchema_1,
+		"tasks.task-created.1":        taskCreatedSchema_1,
+		"tasks.task-created.2":        taskCreatedSchema_2,
+		"tasks.task-completed.1":      taskCompletedSchema_1,
+		"tasks.task-assigned.1":       taskAssignedSchema_1,
+		"accounting.task-assigned.1":  accountingTaskAssigned_1,
+		"accounting.task-completed.1": accountingTaskCompleted_1,
 	}
 )
 

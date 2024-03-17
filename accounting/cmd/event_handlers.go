@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"github.com/thekndr/ates/accounting/db"
 	"github.com/thekndr/ates/accounting/event_handlers"
@@ -35,7 +34,7 @@ type eventHandlers struct {
 	billingCycleCompleted event_handlers.BillingCycleCompleted
 }
 
-func (eh *eventHandlers) setup(dbInstance *sql.DB) {
+func (eh *eventHandlers) setup(dbInstance *sql.DB, eventCh chan event_streaming.InternalEvent) {
 	workers := db.Workers{Db: dbInstance}
 	tasks := db.Tasks{Db: dbInstance}
 	transactions := db.Transactions{Db: dbInstance}
@@ -46,12 +45,14 @@ func (eh *eventHandlers) setup(dbInstance *sql.DB) {
 
 	eh.task.created = event_handlers.TaskCreated{Tasks: tasks}
 	eh.task.assigned = event_handlers.TaskAssigned{
+		EventCh:       eventCh,
 		Transactions:  transactions,
 		Tasks:         tasks,
 		BillingCycles: billingCycles,
 		Workers:       workers,
 	}
 	eh.task.completed = event_handlers.TaskCompleted{
+		EventCh:       eventCh,
 		Transactions:  transactions,
 		Tasks:         tasks,
 		BillingCycles: billingCycles,
@@ -74,18 +75,12 @@ func (eh *eventHandlers) OnBillingCycleCompleted() error {
 	return err
 }
 
-func (eh *eventHandlers) OnEvent(topic string, msg []byte) error {
-	var ev event_streaming.PublicEvent
-
-	if err := json.Unmarshal(msg, &ev); err != nil {
-		return fmt.Errorf(`failed to decode event: %w`, err)
-	}
-
+func (eh *eventHandlers) OnEvent(topic string, ev event_streaming.PublicEvent, rawEv []byte) error {
 	switch topic {
 	case "auth.accounts":
-		return eh.onAuthEvent(ev, msg)
+		return eh.onAuthEvent(ev, rawEv)
 	case "task-management.tasks":
-		return eh.onTaskEvent(ev, msg)
+		return eh.onTaskEvent(ev, rawEv)
 	default:
 		log.Fatalf(`unknown/unsupported topic: %s`, topic)
 	}
@@ -204,7 +199,7 @@ func newAuthSchemas() schema_registry.Schemas {
 func newTaskSchemas() schema_registry.Schemas {
 	authSchemas, err := schema_registry.NewSchemas(
 		schema_registry.Scope("task"),
-		"task-created", "task-assigned", "task-completes",
+		"task-created", "task-assigned", "task-completed",
 	)
 	if err != nil {
 		log.Fatalf(`failed to create task schemas registry validator: %w`, err)
