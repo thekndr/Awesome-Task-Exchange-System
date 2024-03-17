@@ -27,14 +27,16 @@ var (
 
 	authEventVersion  = 1
 	selfEventVersions = event_streaming.EventVersions{
-		"task-created":   1,
+		"task-created":   2,
 		"task-assigned":  1,
 		"task-completed": 1,
 	}
-	selfEventTopic = "task-managements.tasks"
+	selfEventTopic = "task-management.tasks"
 )
 
 func main() {
+	task_management.MustMigrateDB_JiraID(db)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

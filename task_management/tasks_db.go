@@ -36,3 +36,10 @@ CREATE TABLE IF NOT EXISTS tasks (
 
 	return db
 }
+
+func MustMigrateDB_JiraID(db *sql.DB) {
+	_, err := db.Exec(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS jira_id VARCHAR(255)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+}

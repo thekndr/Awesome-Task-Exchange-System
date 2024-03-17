@@ -136,6 +136,7 @@ func (h *TaskCompleted) Handle(ev TaskCompletedEvent) error {
 type (
 	TaskCreatedEvent struct {
 		Id          string `json:"id"`
+		JiraId      string `json:"jira_id"`
 		Description string `json:"description"`
 	}
 

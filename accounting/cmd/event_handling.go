@@ -16,8 +16,8 @@ var (
 	authSchemas      = newAuthSchemas()
 	authEventVersion = 1
 
-	taskSchemas      = newTaskSchemas()
-	taskEventVersion = 1
+	taskSchemas       = newTaskSchemas()
+	taskEventVersions = []int{1, 2}
 )
 
 type eventHandlers struct {
@@ -93,7 +93,7 @@ func (eh *eventHandlers) OnEvent(topic string, msg []byte) error {
 }
 
 func (eh *eventHandlers) onAuthEvent(ev event_streaming.PublicEvent, rawEv []byte) error {
-	if err := eh.validate(authSchemas, ev, rawEv); err != nil {
+	if _, err := eh.validate(authSchemas, ev, rawEv, authEventVersion); err != nil {
 		return err
 	}
 
@@ -132,16 +132,28 @@ func (eh *eventHandlers) onAuthEvent(ev event_streaming.PublicEvent, rawEv []byt
 }
 
 func (eh *eventHandlers) onTaskEvent(ev event_streaming.PublicEvent, rawEv []byte) error {
-	if err := eh.validate(taskSchemas, ev, rawEv); err != nil {
+	var (
+		schemaVersion int
+		err           error
+	)
+	if schemaVersion, err = eh.validate(taskSchemas, ev, rawEv, taskEventVersions...); err != nil {
 		return err
 	}
 
 	taskIdStr := ev.Context["id"].(string)
 	switch ev.Name {
 	case "task-created":
+		// Though `JiraId` is not used anywhere for accounting logic,
+		// this is an example of possible version handling
+		var jiraId string
+		if schemaVersion == 2 {
+			jiraId = ev.Context["jira-id"].(string)
+		}
+
 		return eh.task.created.Handle(event_handlers.TaskCreatedEvent{
 			Id:          taskIdStr,
 			Description: ev.Context["description"].(string),
+			JiraId:      jiraId,
 		})
 
 	case "task-assigned":
@@ -163,17 +175,19 @@ func (eh *eventHandlers) onTaskEvent(ev event_streaming.PublicEvent, rawEv []byt
 	return nil
 }
 
-func (eg *eventHandlers) validate(schemas schema_registry.Schemas, ev event_streaming.PublicEvent, rawEv []byte) error {
-	valid, err := schemas.Validate(rawEv, ev.Name, taskEventVersion)
-	if err != nil {
-		return fmt.Errorf(`error during schema event=%s (%+v): %s`, ev.Name, ev.Meta, err)
+func (eg *eventHandlers) validate(schemas schema_registry.Schemas, ev event_streaming.PublicEvent, rawEv []byte, versions ...int) (int, error) {
+	for _, ver := range versions {
+		valid, err := schemas.Validate(rawEv, ev.Name, ver)
+		if err != nil {
+			return -1, fmt.Errorf(`error during schema event=%s (%+v): %s`, ev.Name, ev.Meta, err)
+		}
+
+		if valid {
+			return ver, nil
+		}
 	}
 
-	if !valid {
-		return fmt.Errorf(`invalid schema for event=%s (%+v)`, ev.Name, ev.Meta)
-	}
-
-	return nil
+	return -1, fmt.Errorf(`validation for event=%s versions=%+v failed`, ev.Name, versions)
 }
 
 func newAuthSchemas() schema_registry.Schemas {
