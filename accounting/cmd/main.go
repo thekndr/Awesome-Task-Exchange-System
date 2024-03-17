@@ -32,5 +32,10 @@ func main() {
 
 	topics := []string{"auth.accounts", "task-managements.tasks"}
 	log.Printf(`Listening to events (%s)...`, topics)
-	mustConsumeFromKafka(ctx, topics, evHandlers.OnEvent)
+
+	eh := event_streaming.MustNewEventHandling(event_streaming.EventHandlingConfig{
+		EnableAutoCommit: true,
+	})
+}
+
 }
