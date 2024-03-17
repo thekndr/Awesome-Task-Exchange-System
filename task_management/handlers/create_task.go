@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"regexp"
 
 	"github.com/thekndr/ates/common"
 	"github.com/thekndr/ates/event_streaming"
@@ -21,6 +22,7 @@ type CreateTask struct {
 func (h *CreateTask) Handle(w http.ResponseWriter, r *http.Request) {
 	type createTaskRequest struct {
 		Description string `json:"description"`
+		JiraId      string `json:"jira_id"`
 	}
 
 	var requestData createTaskRequest
@@ -37,7 +39,12 @@ func (h *CreateTask) Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	taskDescription, assigneeId := requestData.Description, randomWorkerIds.Get()
+	taskDescription, assigneeId := parseTaskDescription(requestData.Description), randomWorkerIds.Get()
+	if requestData.JiraId != "" {
+		log.Printf(`overwriting jira_id from description="%s" to "%s" from request`, requestData.Description, requestData.JiraId)
+		taskDescription.JiraId = requestData.JiraId
+	}
+
 	var (
 		taskId string
 		err    error
@@ -51,19 +58,42 @@ func (h *CreateTask) Handle(w http.ResponseWriter, r *http.Request) {
 	log.Printf(`Task created id=%s, assigned to %s`, taskId, assigneeId)
 	w.WriteHeader(http.StatusCreated)
 
+	// NOTE/TODO: since the new task cannot be left unassigned, the assignment happens on creation
+	// For the sake of simplicity, a single event `task-created` with assignment info is emited;
+	// this could be splitted to two separate sequential events `created` + `assigned`.
 	event_streaming.Publish(
 		h.EventCh, "task-created",
 		event_streaming.EventContext{
 			"assignee-id": assigneeId,
-			"description": taskDescription,
+			"description": taskDescription.Body,
+			"jira-id":     taskDescription.JiraId,
 			"id":          taskId,
 		},
 	)
 }
 
-func createTask(db *sql.DB, description string, assigneeID string) (string, error) {
-	query := `INSERT INTO tasks (description, assignee_id, status) VALUES ($1, $2, $3) RETURNING public_id`
+func createTask(db *sql.DB, description parsedTaskDescription, assigneeID string) (string, error) {
+	query := `INSERT INTO tasks (jira_id, description, assignee_id, status) VALUES ($1, $2, $3, $4) RETURNING public_id`
 	var publicId string
-	err := db.QueryRow(query, description, assigneeID, common.TaskActiveStatus).Scan(&publicId)
+	err := db.QueryRow(query, description.JiraId, description.Body, assigneeID, common.TaskActiveStatus).Scan(&publicId)
 	return publicId, err
+}
+
+var (
+	taskJiraTitleRe = `^\[(.*?)\] - (.*)$`
+)
+
+type parsedTaskDescription struct {
+	JiraId string
+	Body   string
+}
+
+func parseTaskDescription(input string) parsedTaskDescription {
+	re := regexp.MustCompile(taskJiraTitleRe)
+	matches := re.FindStringSubmatch(input)
+	if len(matches) > 0 {
+		return parsedTaskDescription{JiraId: matches[1], Body: matches[2]}
+	}
+
+	return parsedTaskDescription{Body: input}
 }
