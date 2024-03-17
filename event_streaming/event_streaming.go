@@ -80,7 +80,7 @@ func (es *EventStreaming) listenAndPublish(evCh <-chan InternalEvent, topic stri
 		case internalEv := <-evCh:
 			jsonEv, err := es.buildEvent(internalEv)
 			if err != nil {
-				log.Fatalf(`failed to build event: %w`, err)
+				log.Fatalf(`failed to build event: %s`, err)
 				// TODO: error handling policy
 				continue
 			}
@@ -103,7 +103,7 @@ func (es *EventStreaming) buildEvent(ev InternalEvent) ([]byte, error) {
 
 	jsonEv, err := json.Marshal(pubEv)
 	if err != nil {
-		return nil, fmt.Errorf(`failed to marshal ev=%=v to json: %w`, pubEv, err)
+		return nil, fmt.Errorf(`failed to marshal ev=%+v to json: %w`, pubEv, err)
 	}
 
 	ok, err := es.schemas.Validate(jsonEv, ev.Name, evVersion)
