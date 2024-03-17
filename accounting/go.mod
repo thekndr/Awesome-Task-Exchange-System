@@ -16,6 +16,7 @@ require (
 	github.com/thekndr/ates/common v0.0.0-00010101000000-000000000000
 	github.com/thekndr/ates/event_streaming v0.0.0-00010101000000-000000000000
 	github.com/thekndr/ates/schema_registry v0.0.0-00010101000000-000000000000
+	golang.org/x/exp v0.0.0-20240314144324-c7f7c6466f7f
 )
 
 require (

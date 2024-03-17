@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/thekndr/ates/accounting/db"
+	"github.com/thekndr/ates/event_streaming"
+	"time"
 )
 
 type (
@@ -13,6 +15,8 @@ type (
 	}
 
 	TaskAssigned struct {
+		EventCh chan event_streaming.InternalEvent
+
 		Transactions  db.Transactions
 		Tasks         db.Tasks
 		BillingCycles db.BillingCycles
@@ -58,6 +62,16 @@ func (h *TaskAssigned) Handle(ev TaskAssignedEvent) error {
 		return fmt.Errorf(`task-assigned: failed to commit db-tx`)
 	}
 
+	h.EventCh <- event_streaming.InternalEvent{
+		Name: "task-assigned", Context: event_streaming.EventContext{
+			"time":        time.Now(),
+			"id":          ev.Id,
+			"assignee-id": ev.AssigneeId,
+			"cost":        accTask.AssignmentPrice,
+			"reward":      accTask.RewardPrice,
+		},
+	}
+
 	return nil
 }
 
@@ -84,6 +98,8 @@ type (
 	}
 
 	TaskCompleted struct {
+		EventCh chan event_streaming.InternalEvent
+
 		Db            *sql.DB
 		Transactions  db.Transactions
 		Tasks         db.Tasks
@@ -128,6 +144,16 @@ func (h *TaskCompleted) Handle(ev TaskCompletedEvent) error {
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf(`task-assigned: failed to commit db-tx`)
+	}
+
+	h.EventCh <- event_streaming.InternalEvent{
+		Name: "task-completed", Context: event_streaming.EventContext{
+			"time":        time.Now(),
+			"id":          ev.Id,
+			"assignee-id": ev.AssigneeId,
+			"cost":        accTask.AssignmentPrice,
+			"reward":      accTask.RewardPrice,
+		},
 	}
 
 	return nil
